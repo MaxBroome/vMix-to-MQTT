@@ -4,18 +4,22 @@ import paho.mqtt.client as mqtt
 import schedule
 import time
 
-# Connect to the vMix API
+recording_state = None
+
 def check_recording():
-    url = "http://[VMIX IP]:8088/api"
+    url = "[VMIX IP]:8088/api"
     response = requests.get(url)
     root = ET.fromstring(response.text)
     recording = root.find("recording").text
-    if recording == "True":
-        print("vMix is currently recording.")
-        client.publish("[MQTT TOPIC]", '{"state": "On"}')
-    else:
-        print("vMix is not currently recording.")
-        client.publish("[MQTT TOPIC]", '{"state": "Off"}')
+    global recording_state
+    if recording != recording_state:
+        recording_state = recording
+        if recording == "True":
+            print("vMix is currently recording.")
+            client.publish("[MQTT TOPIC]", '{"state": "On"}')
+        if recording == "False":
+            print("vMix is currently Not recording.")
+            client.publish("[MQTT TOPIC]", '{"state": "Off"}')
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
