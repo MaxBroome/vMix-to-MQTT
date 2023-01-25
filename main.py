@@ -23,10 +23,22 @@ def check_recording():
 def send_mqtt_message(recording):
     if recording == "True":
         print("vMix is currently recording.")
-        client.publish("[MQTT TOPIC]", '{"state": "On"}')
+        if client.is_connected():
+            result, mid = client.publish("[MQTT TOPIC]", '{"state": "On"}')
+        else:
+            client.connect("[MQTT BROKER IP]", 1883, keepalive=60)
+            result, mid = client.publish("[MQTT TOPIC]", '{"state": "On"}')
+        if result != mqtt.MQTT_ERR_SUCCESS:
+            print("Error sending MQTT message:", result)
     if recording == "False":
         print("vMix is currently Not recording.")
-        client.publish("[MQTT TOPIC]", '{"state": "Off"}')
+        if client.is_connected():
+            result, mid = client.publish("[MQTT TOPIC]", '{"state": "Off"}')
+        else:
+            client.connect("[MQTT BROKER IP]", 1883, keepalive=60)
+            result, mid = client.publish("[MQTT TOPIC]", '{"state": "Off"}')
+        if result != mqtt.MQTT_ERR_SUCCESS:
+            print("Error sending MQTT message:", result)
 
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
