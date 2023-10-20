@@ -8,7 +8,7 @@ recording_state = None
 
 def check_recording():
     try:
-        url = "http://172.16.15.9:8088/api"
+        url = "http://<vMIX IP ADDRESS>:8088/api"
         response = requests.get(url)
         root = ET.fromstring(response.text)
         recording = root.find("recording").text
@@ -26,13 +26,13 @@ def send_mqtt_message(recording):
         if recording == "True":
             if not client.is_connected():
                 client.connect("127.0.0.1", 1883, keepalive=60)
-            result, mid = client.publish("zigbee2mqtt/On Air Light/set", '{"state": "On"}')
+            result, mid = client.publish("zigbee2mqtt/<DEVICE>/set", '{"state": "On"}')
             if result != mqtt.MQTT_ERR_SUCCESS:
                 print(f"\rError sending MQTT message: {result}", end='', flush=True)
         elif recording == "False":
             if not client.is_connected():
                 client.connect("127.0.0.1", 1883, keepalive=60)
-            result, mid = client.publish("zigbee2mqtt/On Air Light/set", '{"state": "Off"}')
+            result, mid = client.publish("zigbee2mqtt/<DEVICE>/set", '{"state": "Off"}')
             if result != mqtt.MQTT_ERR_SUCCESS:
                 print(f"\rError sending MQTT message: {result}", end='', flush=True)
     except Exception as e:
