@@ -3,19 +3,27 @@ import requests
 import paho.mqtt.client as mqtt
 import schedule
 import time
+import argparse
+
+# Define your variables here
+vMix_ip = "YOUR_VMIX_IP_ADDRESS"
+mqtt_broker_ip = "YOUR_BROKER_IP_ADDRESS"
+start_recording_topic = "YOUR_START_RECORDING_TOPIC"
+stop_recording_topic = "YOUR_STOP_RECORDING_TOPIC"
 
 recording_state = None
 
 def check_recording():
     try:
-        url = "http://<vMIX IP ADDRESS>:8088/api"
+        url = f"http://{vMix_ip}:8088/api"
         response = requests.get(url)
         root = ET.fromstring(response.text)
         recording = root.find("recording").text
         global recording_state
         if recording != recording_state:
-            update_status(recording)
             recording_state = recording
+            update_status(recording)
+            send_mqtt_message(recording)
     except requests.exceptions.ConnectionError:
         print("\rvMix disconnected, retrying connection...", end='', flush=True)
     except Exception as e:
@@ -23,41 +31,38 @@ def check_recording():
 
 def send_mqtt_message(recording):
     try:
+        client = mqtt.Client()
+        client.connect(mqtt_broker_ip, 1883, keepalive=60)
+
         if recording == "True":
-            if not client.is_connected():
-                client.connect("127.0.0.1", 1883, keepalive=60)
-            result, mid = client.publish("zigbee2mqtt/<DEVICE>/set", '{"state": "On"}')
-            if result != mqtt.MQTT_ERR_SUCCESS:
-                print(f"\rError sending MQTT message: {result}", end='', flush=True)
+            result, mid = client.publish(start_recording_topic, '{"state": "On"}')
+            if args.logs:
+                if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                    print("\rMQTT message sent successfully.", end='', flush=True)
+                else:
+                    print(f"\rError sending MQTT message: {result.rc}", end='', flush=True)
         elif recording == "False":
-            if not client.is_connected():
-                client.connect("127.0.0.1", 1883, keepalive=60)
-            result, mid = client.publish("zigbee2mqtt/<DEVICE>/set", '{"state": "Off"}')
-            if result != mqtt.MQTT_ERR_SUCCESS:
-                print(f"\rError sending MQTT message: {result}", end='', flush=True)
+            result, mid = client.publish(stop_recording_topic, '{"state": "Off"}')
+            if args.logs:
+                if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                    print("\rMQTT message sent successfully.", end='', flush=True)
+                else:
+                    print(f"\rError sending MQTT message: {result.rc}", end='', flush=True)
     except Exception as e:
-        print(f"\rAn error occurred: {e}", end='', flush=True)
+        if args.logs:
+            print(f"\rAn error occurred: {e}", end='', flush=True)
 
 def update_status(recording):
     status_text = "vMix is currently recording." if recording == "True" else "vMix is currently Not recording."
     print(f"\r{status_text}", end='', flush=True)
 
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code " + str(rc))
+    print("Connected with result code " + str(rc)
 
-client = mqtt.Client()
-client.on_connect = on_connect
-
-client.connect("127.0.0.1", 1883, 60)
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description="vMix to MQTT Script")
+parser.add_argument("--logs", "-l", action="store_true", help="Enable log messages")
+args = parser.parse_args()
 
 # Initial check for recording status
 check_recording()
-
-schedule.every(1).seconds.do(check_recording)
-
-try:
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-except KeyboardInterrupt:
-    client.disconnect()
